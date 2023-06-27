@@ -14,12 +14,27 @@ class BladeFragment
 
         $content = File::get($path);
 
-        $re = sprintf('/(?<!@)@fragment[ \t]*\([\'"]{1}%s[\'"]{1}\)(.*?)@endfragment/s', $fragment);
+        $re = sprintf('/(?<!@)@fragment[ \t]*\([\'"]{1}%s[\'"]{1}\)/s', $fragment);
 
-        preg_match($re, $content, $matches);
-
+        preg_match($re, $content, $matches, PREG_OFFSET_CAPTURE);
         throw_if(empty($matches), "No fragment called \"$fragment\" exists in \"$path\"");
 
-        return Blade::render($matches[1], $data);
+        $start = $matches[0][1];
+
+        preg_match_all('/@endfragment/s', $content, $matches, PREG_OFFSET_CAPTURE, $start);
+
+        foreach ($matches[0] as $match) {
+            $end = $match[1];
+            $sub = substr($content, $start, $end - $start);
+
+            $count_frag = preg_match_all('/(?<!@)@fragment[ \t]*\([\'"]{1}\S*[\'"]{1}\)/s', $sub, $matches);
+            $count_end = preg_match_all('/@endfragment/s', $sub, $matches);
+
+            if ($count_frag - 1 - $count_end == 0) {
+                break;
+            }
+        }
+
+        return Blade::render($sub, $data);
     }
 }
